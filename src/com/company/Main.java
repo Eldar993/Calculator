@@ -1,109 +1,212 @@
-package com.company;import java.util.Stack;
+import java.util.ArrayList;
+import java.util.Scanner;
+import java.util.Stack;
 
-class EvaluateString
-{
-    public static int evaluate(String expression)
-    {
-        char[] tokens = expression.toCharArray();
+class Token {
+    public static final int UNKNOWN = -1;
+    public static final int NUMBER = 0;
+    public static final int OPERATOR = 1;
+    public static final int LEFT_PARENTHESIS = 2;
+    public static final int RIGHT_PARENTHESIS = 3;
 
-        // Stack for numbers: 'values'
-        Stack<Integer> values = new Stack<Integer>();
+    private int type;
+    private double value;
+    private char operator;
+    private int precedence;
 
-        // Stack for Operators: 'ops'
-        Stack<Character> ops = new Stack<Character>();
+    public Token() {
+        type = UNKNOWN;
+    }
 
-        for (int i = 0; i < tokens.length; i++)
-        {
-            // Current token is a whitespace, skip it
-            if (tokens[i] == ' ')
-                continue;
-
-            // Current token is a number, push it to stack for numbers
-            if (tokens[i] >= '0' && tokens[i] <= '9')
-            {
-                StringBuffer sbuf = new StringBuffer();
-                // There may be more than one digits in number
-                while (i < tokens.length && tokens[i] >= '0' && tokens[i] <= '9')
-                    sbuf.append(tokens[i++]);
-                values.push(Integer.parseInt(sbuf.toString()));
-            }
-
-            // Current token is an opening brace, push it to 'ops'
-            else if (tokens[i] == '(')
-                ops.push(tokens[i]);
-
-                // Closing brace encountered, solve entire brace
-            else if (tokens[i] == ')')
-            {
-                while (ops.peek() != '(')
-                    values.push(Operaion(ops.pop(), values.pop(), values.pop()));
-                ops.pop();
-            }
-
-            // Current token is an operator.
-            else if (tokens[i] == '+' || tokens[i] == '-' ||
-                    tokens[i] == '*' || tokens[i] == '/')
-            {
-                // While top of 'ops' has same or greater precedence to current
-                // token, which is an operator. Apply operator on top of 'ops'
-                // to top two elements in values stack
-                while (!ops.empty() && hasPrecedence(tokens[i], ops.peek()))
-                    values.push(Operaion(ops.pop(), values.pop(), values.pop()));
-
-                // Push current token to 'ops'.
-                ops.push(tokens[i]);
-            }
+    public Token(String contents) {
+        switch(contents) {
+            case "+":
+                type = OPERATOR;
+                operator = contents.charAt(0);
+                precedence = 1;
+                break;
+            case "-":
+                type = OPERATOR;
+                operator = contents.charAt(0);
+                precedence = 1;
+                break;
+            case "*":
+                type = OPERATOR;
+                operator = contents.charAt(0);
+                precedence = 2;
+                break;
+            case "/":
+                type = OPERATOR;
+                operator = contents.charAt(0);
+                precedence = 2;
+                break;
+            case "(":
+                type = LEFT_PARENTHESIS;
+                break;
+            case ")":
+                type = RIGHT_PARENTHESIS;
+                break;
+            default:
+                type = NUMBER;
+                try {
+                    value = Double.parseDouble(contents);
+                } catch (Exception ex) {
+                    type = UNKNOWN;
+                }
         }
-
-        // Entire expression has been parsed at this point, apply remaining
-        // ops to remaining values
-        while (!ops.empty())
-            values.push(Operaion(ops.pop(), values.pop(), values.pop()));
-
-        // Top of 'values' contains result, return it
-        return values.pop();
     }
 
-    // Returns true if 'op2' has higher or same precedence as 'op1',
-    // otherwise returns false.
-    public static boolean hasPrecedence(char op1, char op2)
-    {
-        if (op2 == '(' || op2 == ')')
-            return false;
-        if ((op1 == '*' || op1 == '/') && (op2 == '+' || op2 == '-'))
-            return false;
-        else
-            return true;
+    public Token(double x) {
+        type = NUMBER;
+        value = x;
     }
 
-    // A utility method to apply an operator 'op' on operands 'a'
-    // and 'b'. Return the result.
-    public static int Operaion(char op, int b, int a)
-    {
-        switch (op)
-        {
+    int getType() { return type; }
+    double getValue() { return value; }
+    int getPrecedence() { return precedence; }
+
+    Token operate(double a,double b) {
+        double result = 0;
+        switch(operator) {
             case '+':
-                return a + b;
+                result = a + b;
+                break;
             case '-':
-                return a - b;
+                result = a - b;
+                break;
             case '*':
-                return a * b;
+                result = a * b;
+                break;
             case '/':
-                if (b == 0)
-                    throw new
-                            UnsupportedOperationException("Cannot divide by zero");
-                return a / b;
+                result = a / b;
+                break;
         }
-        return 0;
-    }
-
-
-    public static void main(String[] args)
-    {
-        System.out.println(EvaluateString.evaluate("10 + 2 * 6"));
-        System.out.println(EvaluateString.evaluate("100 * 2 + 12"));
-        System.out.println(EvaluateString.evaluate("100 * ( 2 + 12 )"));
-        System.out.println(EvaluateString.evaluate("100 * ( 2 + 12 ) / 14"));
+        return new Token(result);
     }
 }
+class TokenStack
+{
+    /** Member variables **/
+    private ArrayList<Token> tokens = new ArrayList<Token>();
+
+    /** Accessor methods **/
+    public boolean isEmpty() {
+        return tokens.size() == 0;
+    }
+    public Token top() {
+        return tokens.get(tokens.size()-1);
+    }
+
+    /** Mutator methods **/
+    public void push(Token t) {
+        tokens.add(t);
+    }
+    public void pop() {
+        tokens.remove(tokens.size()-1);
+    }
+}
+class FullCalculator {
+    private Stack<Token> tokens = new Stack<Token>();
+    private TokenStack operatorStack;
+    private TokenStack valueStack;
+    private boolean error;
+
+    public FullCalculator() {
+        operatorStack = new TokenStack();
+        valueStack = new TokenStack();
+        error = false;
+    }
+
+    private void processOperator(Token t) {
+        Token A = null, B = null;
+        if (valueStack.isEmpty()) {
+            System.out.println("ERROR");
+            error = true;
+            return;
+        } else {
+            B = valueStack.top();
+            valueStack.pop();
+        }
+        if (valueStack.isEmpty()) {
+            System.out.println("ERROR");
+            error = true;
+            return;
+        } else {
+            A = valueStack.top();
+            valueStack.pop();
+        }
+        Token R = t.operate(A.getValue(), B.getValue());
+        valueStack.push(R);
+    }
+
+    public void processInput(String input) {
+        // The tokens that make up the input
+        String[] parts = input.split(" ");
+        Token[] tokens = new Token[parts.length];
+        for (int n = 0; n < parts.length; n++) {
+            tokens[n] = new Token(parts[n]);
+        }
+
+        // Main loop - process all input tokens
+        for (int n = 0; n < tokens.length; n++) {
+            Token nextToken = tokens[n];
+            if (nextToken.getType() == Token.NUMBER) {
+                valueStack.push(nextToken);
+            } else if (nextToken.getType() == Token.OPERATOR) {
+                if (operatorStack.isEmpty() || nextToken.getPrecedence() > operatorStack.top().getPrecedence()) {
+                    operatorStack.push(nextToken);
+                } else {
+                    while (!operatorStack.isEmpty() && nextToken.getPrecedence() <= operatorStack.top().getPrecedence()) {
+                        Token toProcess = operatorStack.top();
+                        operatorStack.pop();
+                        processOperator(toProcess);
+                    }
+                    operatorStack.push(nextToken);
+                }
+            } else if (nextToken.getType() == Token.LEFT_PARENTHESIS) {
+                operatorStack.push(nextToken);
+            } else if (nextToken.getType() == Token.RIGHT_PARENTHESIS) {
+                while (!operatorStack.isEmpty() && operatorStack.top().getType() == Token.OPERATOR) {
+                    Token toProcess = operatorStack.top();
+                    operatorStack.pop();
+                    processOperator(toProcess);
+                }
+                if (!operatorStack.isEmpty() && operatorStack.top().getType() == Token.LEFT_PARENTHESIS) {
+                    operatorStack.pop();
+                } else {
+                    System.out.println("ERROR");
+                    error = true;
+                }
+            }
+
+        }
+        // Empty out the operator stack at the end of the input
+        while (!operatorStack.isEmpty() && operatorStack.top().getType() == Token.OPERATOR) {
+            Token toProcess = operatorStack.top();
+            operatorStack.pop();
+            processOperator(toProcess);
+        }
+        // Print the result if no error has been seen.
+        if (error == false) {
+            Token result = valueStack.top();
+            valueStack.pop();
+            if (!operatorStack.isEmpty() || !valueStack.isEmpty()) {
+                System.out.println("ERROR");
+            } else {
+                System.out.printf("%.5f", result.getValue());
+            }
+        }
+    }
+
+    public static void main(String[] args) {
+        Scanner input = new Scanner(System.in);
+        // The original input
+        System.out.print("Enter an expression to compute: ");
+        String userInput = input.nextLine();
+
+        FullCalculator calc = new FullCalculator();
+        calc.processInput(userInput);
+    }
+}
+
 
